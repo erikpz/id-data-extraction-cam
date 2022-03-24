@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useState } from "react";
 import * as BlinkIDSDK from "@microblink/blinkid-in-browser-sdk";
 import { Box, Button, styled, Typography } from "@mui/material";
 import Swal from "sweetalert2";
@@ -19,18 +19,20 @@ const ScanContainer = styled(Box)(({ theme }) => ({
 }));
 
 export const IdScan = (props) => {
+  const [scanFeedbackLock, setscanFeedbackLock] = useState(false);
+  const [scanTextFeedback, setscanTextFeedback] = useState(
+    "Coloca el documento frente a la cámara"
+  );
   const videoRef = useRef();
-  const scanFeedback = useRef();
   const cameraFeedback = useRef();
-  let scanFeedbackLock = false;
 
   const updateScanFeedback = (message, force) => {
     if (scanFeedbackLock && !force) {
       return;
     }
-    scanFeedbackLock = true;
-    scanFeedback.current.innerText = message;
-    window.setTimeout(() => (scanFeedbackLock = false), 1000);
+    setscanFeedbackLock(true);
+    setscanTextFeedback(message);
+    window.setTimeout(() => setscanFeedbackLock(false), 1000);
   };
 
   const setupMessage = (displayable) => {
@@ -60,6 +62,73 @@ export const IdScan = (props) => {
         );
     }
   };
+
+  async function startScanTwoSide(sdk) {
+    const combinedGenericIDRecognizer =
+      await BlinkIDSDK.createBlinkIdCombinedRecognizer(sdk);
+
+    const callbacks = {
+      onQuadDetection: (quad) => setupMessage(quad),
+      onDetectionFailed: () => updateScanFeedback("Deteccion fallida", true),
+      onFirstSideResult: () =>
+        Swal.fire({
+          title: "Voltea",
+          text: "Dale vuelta al documento",
+          icon: "info",
+        }),
+    };
+
+    const recognizerRunner = await BlinkIDSDK.createRecognizerRunner(
+      sdk,
+      [combinedGenericIDRecognizer],
+      false,
+      callbacks
+    );
+
+    const videoRecognizer =
+      await BlinkIDSDK.VideoRecognizer.createVideoRecognizerFromCameraStream(
+        videoRef.current,
+        recognizerRunner
+      );
+
+    const scanTimeoutSeconds = 15;
+
+    try {
+      videoRecognizer.startRecognition(async (recognitionState) => {
+        if (!videoRecognizer) {
+          return;
+        }
+        videoRecognizer.pauseRecognition();
+        if (recognitionState === BlinkIDSDK.RecognizerResultState.Empty) {
+          return;
+        }
+        const result = await combinedGenericIDRecognizer.getResult();
+        if (result.state === BlinkIDSDK.RecognizerResultState.Empty) {
+          return;
+        }
+        Swal.fire({
+          title: "Exito",
+          text: "Datos leídos correctamente",
+          icon: "success",
+        });
+        console.log("Resultados BlinkIDCombined", result);
+        videoRecognizer?.releaseVideoFeed();
+        recognizerRunner?.delete();
+        combinedGenericIDRecognizer?.delete();
+      }, scanTimeoutSeconds * 1000);
+    } catch (error) {
+      Swal.fire({
+        title: "Error",
+        text: "No se pudo extraer la información",
+        icon: "error",
+      });
+      console.error(
+        "Error durante la inicializacion del VideoRecognizer:",
+        error
+      );
+      return;
+    }
+  }
 
   async function startScanOneSide(sdk) {
     const genericIDRecognizer = await BlinkIDSDK.createBlinkIdRecognizer(sdk);
@@ -129,6 +198,8 @@ export const IdScan = (props) => {
       const sdk = await BlinkIDSDK.loadWasmModule(loadSettings);
       if (sides === 1) {
         startScanOneSide(sdk);
+      } else if (sides === 2) {
+        startScanTwoSide(sdk);
       }
     } catch (err) {
       Swal.fire({
@@ -146,9 +217,7 @@ export const IdScan = (props) => {
         <video ref={videoRef} width="100%" height="100%"></video>
         <canvas ref={cameraFeedback} id="canv"></canvas>
       </ScanContainer>
-      <Typography ref={scanFeedback}>
-        Coloca el documento frente a la cámara
-      </Typography>
+      <Typography>{scanTextFeedback}</Typography>
       <Button
         variant="contained"
         onClick={() => init(props.sides ?? 1)}

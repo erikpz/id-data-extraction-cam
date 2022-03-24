@@ -12,7 +12,7 @@ const App = () => {
         placeContent: "center",
       }}
     >
-      <IdScan />
+      <IdScan sides={2} />
     </Box>
   );
 };
