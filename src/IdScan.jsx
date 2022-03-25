@@ -1,6 +1,6 @@
-import React, { useRef, useState } from "react";
+import React, { useRef, useState, useEffect } from "react";
 import * as BlinkIDSDK from "@microblink/blinkid-in-browser-sdk";
-import { Box, Button, styled, Typography } from "@mui/material";
+import { Box, styled, Typography } from "@mui/material";
 import Swal from "sweetalert2";
 
 const RootStyle = styled(Box)(({ theme }) => ({
@@ -25,6 +25,97 @@ export const IdScan = (props) => {
   );
   const videoRef = useRef();
   const cameraFeedback = useRef();
+
+  const getIneData = (data) => {
+    const {
+      dateOfIssue,
+      documentOptionalAdditionalNumber,
+      mothersName,
+      fathersName,
+      documentAdditionalNumber,
+      personalIdNumber,
+      address,
+      dateOfBirth,
+      nationality,
+      fullName,
+      documentNumber,
+      classInfo,
+      mrz,
+      sex,
+      fullDocumentImage,
+    } = data;
+    return {
+      anioEmision: dateOfIssue.year,
+      anioRegistro: parseInt(documentOptionalAdditionalNumber.slice(0, 4)),
+      apellidoMatero: mothersName,
+      apellidoPaterno: fathersName,
+      claveElector: documentAdditionalNumber,
+      curp: personalIdNumber,
+      direccion: address,
+      fechaNacimiento: dateOfBirth,
+      nacionalidad: nationality,
+      nombre: fullName,
+      numeroCIC: documentNumber,
+      numeroEmision: documentOptionalAdditionalNumber.slice(4),
+      infoLocalidad: classInfo,
+      numeroOCR: { ocr: mrz.sanitizedOpt1, rawOcr: mrz.rawMRZString },
+      sexo: sex,
+      mrz: mrz,
+      imageBase64: fullDocumentImage,
+    };
+  };
+  const getPassportData = (data) => {
+    const {
+      lastName,
+      personalIdNumber,
+      dateOfExpiry,
+      dateOfIssue,
+      dateOfBirth,
+      placeOfBirth,
+      mrz,
+      nationality,
+      firstName,
+      documentNumber,
+      sex,
+      fullDocumentImage,
+    } = data;
+    return {
+      apellidoMatero: lastName,
+      apellidoPaterno: lastName,
+      curp: personalIdNumber,
+      fechaExpiracion: dateOfExpiry,
+      fechaExpedicion: dateOfIssue,
+      fechaNacimiento: dateOfBirth,
+      lugarNacimiento: placeOfBirth,
+      dataMRZ: mrz,
+      nacionalidad: nationality,
+      nombre: firstName,
+      numPasaporte: documentNumber,
+      sexo: sex,
+      imageBase64: fullDocumentImage,
+    };
+  };
+  const getLicenceData = (data) => {
+    const {
+      lastName,
+      personalIdNumber,
+      dateOfExpiry,
+      dateOfIssue,
+      firstName,
+      documentNumber,
+      fullDocumentImage,
+    } = data;
+    return {
+      nombre: firstName,
+      apellidoMatero: lastName,
+      apellidoPaterno: lastName,
+      curp: personalIdNumber,
+      fechaExpedicion: dateOfIssue,
+      fechaVencimiento: dateOfExpiry,
+      numLicencia: documentNumber,
+      imageBase64: fullDocumentImage,
+    };
+  };
 
   const updateScanFeedback = (message, force) => {
     if (scanFeedbackLock && !force) {
@@ -111,7 +202,8 @@ export const IdScan = (props) => {
           text: "Datos leídos correctamente",
           icon: "success",
         });
-        console.log("Resultados BlinkIDCombined", result);
+        /*  console.log("Resultados BlinkIDCombined", result); */
+        props.onGetDocData(getIneData(result));
         videoRecognizer?.releaseVideoFeed();
         recognizerRunner?.delete();
         combinedGenericIDRecognizer?.delete();
@@ -132,6 +224,12 @@ export const IdScan = (props) => {
 
   async function startScanOneSide(sdk) {
     const genericIDRecognizer = await BlinkIDSDK.createBlinkIdRecognizer(sdk);
+    const currentSetts = await genericIDRecognizer.currentSettings();
+    genericIDRecognizer.updateSettings({
+      ...currentSetts,
+      returnEncodedFullDocumentImage: true,
+      returnFullDocumentImage: true,
+    });
     /* const idBarcodeRecognizer = await BlinkIDSDK.createIdBarcodeRecognizer(sdk); */
 
     const callbacks = {
@@ -160,7 +258,12 @@ export const IdScan = (props) => {
           text: "Datos leídos correctamente",
           icon: "success",
         });
-        console.log("Resultados del ID", genericIDResults);
+        /* console.log("Resultados del ID", genericIDResults); */
+        if (props.docType === "pasaporte") {
+          props.onGetDocData(getPassportData(genericIDResults));
+        } else if (props.docType === "licencia") {
+          props.onGetDocData(getLicenceData(genericIDResults));
+        }
       }
       /* const idBarcodeResult = await idBarcodeRecognizer.getResult();
       if (idBarcodeResult.state !== BlinkIDSDK.RecognizerResultState.Empty) {
@@ -179,7 +282,7 @@ export const IdScan = (props) => {
     /*  idBarcodeRecognizer?.delete(); */
   }
 
-  const init = async (sides) => {
+  const init = async () => {
     if (!BlinkIDSDK.isBrowserSupported()) {
       Swal.fire({
         title: "Error",
@@ -196,9 +299,9 @@ export const IdScan = (props) => {
       "https://unpkg.com/@microblink/blinkid-in-browser-sdk@5.15.0/resources/";
     try {
       const sdk = await BlinkIDSDK.loadWasmModule(loadSettings);
-      if (sides === 1) {
+      if (props.docType === "pasaporte" || props.docType === "licencia") {
         startScanOneSide(sdk);
-      } else if (sides === 2) {
+      } else if (props.docType === "ine/ife") {
         startScanTwoSide(sdk);
       }
     } catch (err) {
@@ -211,6 +314,10 @@ export const IdScan = (props) => {
     }
   };
 
+  useEffect(() => {
+    init();
+  }, []);
+
   return (
     <RootStyle>
       <ScanContainer>
@@ -218,13 +325,13 @@ export const IdScan = (props) => {
         <canvas ref={cameraFeedback} id="canv"></canvas>
       </ScanContainer>
       <Typography>{scanTextFeedback}</Typography>
-      <Button
+      {/*  <Button
         variant="contained"
-        onClick={() => init(props.sides ?? 1)}
+        onClick={() => init(props.docType ?? "licencia")}
         sx={{ mt: 3 }}
       >
         {props.buttonText ?? "Extraer!"}
-      </Button>
+      </Button> */}
     </RootStyle>
   );
 };
