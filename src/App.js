@@ -26,7 +26,8 @@ const App = () => {
 
   const getData = (docData) => {
     console.log("Data filtrada---", docData);
-    setData(docData);
+    const { imageBase64, ...rest } = docData;
+    setData(rest);
   };
 
   useEffect(() => {
@@ -57,7 +58,11 @@ const App = () => {
           Extraer
         </Button>
       )}
-      {data && JSON.stringify(data)}
+      {data && (
+        <pre style={{ color: "#000" }}>
+          <code>{JSON.stringify(data, null, 2)}</code>
+        </pre>
+      )}
     </Box>
   );
 };
