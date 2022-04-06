@@ -4,11 +4,11 @@ import { IdScan } from "./IdScan";
 
 //Funcion para transformar la data codificada en base64 a objecto url
 
-const getFullImage = (imageData) => {
+/* const getFullImage = (imageData) => {
   return URL.createObjectURL(
     new Blob([imageData.buffer], { type: "image/png" })
   );
-};
+}; */
 
 /* Parametros para el componente IdScan:
 {
