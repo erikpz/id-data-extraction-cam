@@ -1,10 +1,11 @@
 {
-  "name": "id-data-extraction-cam",
+  "name": "Demo-Microblink",
   "version": "0.1.0",
   "private": true,
   "dependencies": {
     "@emotion/react": "^11.8.2",
     "@emotion/styled": "^11.8.1",
+    "@microblink/blinkcard-in-browser-sdk": "^2.4.3",
     "@microblink/blinkid-in-browser-sdk": "^5.15.2",
     "@mui/material": "^5.5.2",
     "@testing-library/jest-dom": "^5.16.3",
