@@ -59,9 +59,11 @@ const App = () => {
         </Button>
       )}
       {data && (
-        <pre style={{ color: "#000" }}>
-          <code>{JSON.stringify(data, null, 2)}</code>
-        </pre>
+        <Box sx={{ maxWidth: 500, mx: "auto", overflow: "auto" }}>
+          <pre style={{ color: "#000" }}>
+            <code>{JSON.stringify(data, null, 2)}</code>
+          </pre>
+        </Box>
       )}
     </Box>
   );
