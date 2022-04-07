@@ -451,7 +451,7 @@ export const IdScan = (props) => {
   return (
     <RootStyle sx={{ display: props.visible ? "flex" : "none" }}>
       <ScanContainer>
-        <video ref={videoRef} width="100%" height="100%"></video>
+        <video ref={videoRef} width="100%" height="100%" autoPlay loop muted playsInline></video>
         <canvas ref={cameraFeedback} id="canv"></canvas>
       </ScanContainer>
       <Typography>{scanTextFeedback}</Typography>
